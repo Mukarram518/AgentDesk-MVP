@@ -51,3 +51,41 @@ def test_settings_configuration():
     assert settings.EMBEDDING_DIMENSION == 384
     assert settings.API_V1_PREFIX == "/api/v1"
     assert settings.POSTGRES_PORT == 5434
+
+
+def test_database_url_ssl_handling():
+    from app.core.config import Settings
+    from sqlalchemy.engine import make_url
+    from sqlalchemy.dialects.postgresql.asyncpg import PGDialect_asyncpg
+
+    dialect = PGDialect_asyncpg()
+
+    # 1. Neon production URL with ?sslmode=require
+    neon_settings = Settings(
+        DATABASE_URL="postgresql://user:secret@ep-cool-frog.us-east-2.aws.neon.tech/neondb?sslmode=require",
+        SYNC_DATABASE_URL=None,
+    )
+    assert neon_settings.async_database_url == "postgresql+asyncpg://user:secret@ep-cool-frog.us-east-2.aws.neon.tech/neondb?ssl=require"
+    _, cparams = dialect.create_connect_args(make_url(neon_settings.async_database_url))
+    assert "sslmode" not in cparams
+    assert cparams.get("ssl") == "require"
+    assert neon_settings.sync_database_url == "postgresql+psycopg2://user:secret@ep-cool-frog.us-east-2.aws.neon.tech/neondb?sslmode=require"
+
+    # 2. Neon URL with channel_binding and sslmode
+    neon_cb_settings = Settings(
+        DATABASE_URL="postgresql://user:secret@ep-cool-frog.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+        SYNC_DATABASE_URL=None,
+    )
+    assert neon_cb_settings.async_database_url == "postgresql+asyncpg://user:secret@ep-cool-frog.us-east-2.aws.neon.tech/neondb?ssl=require"
+    _, cb_cparams = dialect.create_connect_args(make_url(neon_cb_settings.async_database_url))
+    assert "sslmode" not in cb_cparams
+    assert "channel_binding" not in cb_cparams
+    assert cb_cparams.get("ssl") == "require"
+
+    # 3. Explicit postgresql+asyncpg format
+    asyncpg_settings = Settings(
+        DATABASE_URL="postgresql+asyncpg://user:secret@ep-cool-frog.us-east-2.aws.neon.tech/neondb?sslmode=require",
+        SYNC_DATABASE_URL=None,
+    )
+    assert asyncpg_settings.async_database_url == "postgresql+asyncpg://user:secret@ep-cool-frog.us-east-2.aws.neon.tech/neondb?ssl=require"
+

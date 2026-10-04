@@ -1,6 +1,7 @@
 from typing import List, Union
 from pydantic import AnyHttpUrl, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 
 class Settings(BaseSettings):
@@ -40,10 +41,22 @@ class Settings(BaseSettings):
     @property
     def async_database_url(self) -> str:
         if self.DATABASE_URL:
+            url = make_url(self.DATABASE_URL)
             # Ensure asyncpg driver
-            if self.DATABASE_URL.startswith("postgresql://"):
-                return self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-            return self.DATABASE_URL
+            if url.drivername.startswith("postgresql") or url.drivername.startswith("postgres"):
+                url = url.set(drivername="postgresql+asyncpg")
+
+            # asyncpg accepts 'ssl' (e.g. ssl='require'), not 'sslmode'
+            query = dict(url.query)
+            if "sslmode" in query:
+                ssl_mode = query.pop("sslmode")
+                if "ssl" not in query:
+                    query["ssl"] = ssl_mode
+            query.pop("channel_binding", None)
+            url = url.set(query=query)
+
+            return url.render_as_string(hide_password=False)
+
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -55,11 +68,17 @@ class Settings(BaseSettings):
         if self.SYNC_DATABASE_URL:
             return self.SYNC_DATABASE_URL
         if self.DATABASE_URL:
-            if self.DATABASE_URL.startswith("postgresql+asyncpg://"):
-                return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
-            elif self.DATABASE_URL.startswith("postgresql://"):
-                return self.DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-            return self.DATABASE_URL
+            url = make_url(self.DATABASE_URL)
+            if url.drivername.startswith("postgresql") or url.drivername.startswith("postgres"):
+                url = url.set(drivername="postgresql+psycopg2")
+
+            query = dict(url.query)
+            if "ssl" in query and "sslmode" not in query:
+                query["sslmode"] = query.pop("ssl")
+            url = url.set(query=query)
+
+            return url.render_as_string(hide_password=False)
+
         return (
             f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
