@@ -38,5 +38,6 @@ async def health_check() -> HealthResponse:
             "embedding_provider": settings.EMBEDDING_PROVIDER,
             "embedding_model": settings.EMBEDDING_MODEL_NAME,
             "embedding_dimension": settings.EMBEDDING_DIMENSION,
+            "embedding_api_configured": bool(settings.EMBEDDING_API_KEY),
         },
     )

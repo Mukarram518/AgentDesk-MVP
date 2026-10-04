@@ -75,8 +75,16 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 _local_embedding_provider: Optional[LocalEmbeddingProvider] = None
 
 
-def get_embedding_provider() -> EmbeddingProvider:
+def get_local_embedding_provider() -> LocalEmbeddingProvider:
     global _local_embedding_provider
     if _local_embedding_provider is None:
         _local_embedding_provider = LocalEmbeddingProvider()
     return _local_embedding_provider
+
+
+def get_embedding_provider() -> EmbeddingProvider:
+    """Unified embedding provider factory based on settings.EMBEDDING_PROVIDER."""
+    if settings.EMBEDDING_PROVIDER.lower() in ("api", "huggingface", "remote"):
+        from app.services.embedding.api import get_api_embedding_provider
+        return get_api_embedding_provider()
+    return get_local_embedding_provider()

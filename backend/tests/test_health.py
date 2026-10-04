@@ -51,6 +51,21 @@ def test_settings_configuration():
     assert settings.EMBEDDING_DIMENSION == 384
     assert settings.API_V1_PREFIX == "/api/v1"
     assert settings.POSTGRES_PORT == 5434
+    assert "sentence-transformers/all-MiniLM-L6-v2" in settings.EMBEDDING_API_URL
+
+
+@pytest.mark.asyncio
+async def test_health_response_with_api_provider(client: AsyncClient):
+    from unittest.mock import patch
+    with patch("app.api.v1.endpoints.health.settings.EMBEDDING_PROVIDER", "api"), \
+         patch("app.api.v1.endpoints.health.check_database_connection", return_value={"connected": True, "pg_version": "16", "pgvector_available": True, "pgvector_version": "0.8"}), \
+         patch("app.api.v1.endpoints.health.check_redis_connection", return_value=True):
+        response = await client.get("/api/v1/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["services"]["embedding_provider"] == "api"
+        assert data["services"]["embedding_model"] == "all-MiniLM-L6-v2"
+        assert data["services"]["embedding_dimension"] == 384
 
 
 def test_database_url_ssl_handling():

@@ -94,10 +94,14 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "openai/gpt-oss-20b"
 
-    # Embeddings (Local Sentence Transformers)
-    EMBEDDING_PROVIDER: str = "local"
+    # Embeddings (Local Sentence Transformers or Hosted API)
+    EMBEDDING_PROVIDER: str = "local"  # "local" or "api"
     EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"
     EMBEDDING_DIMENSION: int = 384
+    EMBEDDING_API_URL: str = (
+        "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction"
+    )
+    EMBEDDING_API_KEY: str = ""
 
 
 settings = Settings()
